@@ -1,0 +1,3 @@
+peewee
+flask
+vk_api
