@@ -5,17 +5,14 @@ import uuid
 PREAMBLE_PARTS_COUNT = 512
 
 DEFAULT_PREAMBLE = '''
-\documentclass{article}
-\usepackage[a6paper]{geometry}
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{lmodern}
-\usepackage{textcomp}
-\usepackage{lastpage}
-\usepackage{amsmath}
-\usepackage{physics}
-\usepackage{lipsum}
-\pagenumbering{gobble}
+\\documentclass{article}
+\\usepackage[a6paper]{geometry}
+\\usepackage[T1]{fontenc}
+\\usepackage[utf8]{inputenc}
+\\usepackage[russian]{babel}
+\\usepackage{textcomp}
+\\usepackage{amsmath}
+\\pagenumbering{gobble}
 '''
 
 class PreambleManager:
@@ -39,7 +36,7 @@ class PreambleManager:
         return DEFAULT_PREAMBLE.strip().split('\n')
 
     def get_as_list(self, user_id, init_if_empty=True):
-        data = self.api.storage.get(keys=','.join(self.keys))
+        data = self.api.storage.get(keys=','.join(self.keys), user_id=user_id)
         preamble_arr = []
         for element in data:
             preamble_arr.append(element['value'])
@@ -57,7 +54,11 @@ class PreambleManager:
         return preamble_arr
 
     def strip_empty(self, preamble_arr):
-        return [line in preamble_arr if line]
+        outp = []
+        for line in preamble_arr:
+            if line:
+                outp.append(line)
+        return outp
     
     def shift_all_to_start(self, preamble_arr):
         return self.pad_with_empty(self.strip_empty(preamble_arr))

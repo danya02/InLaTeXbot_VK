@@ -1,13 +1,15 @@
 # adapted from https://github.com/vdrhtc/InLaTeXbot/blob/master/src/LatexConverter.py for this project, used under the terms of GPL-3
+from subprocess import check_output, CalledProcessError, STDOUT, TimeoutExpired
 from data_managers import *
-
+import logging
+import io
 
 class LatexConverter():
 
-    logger = LoggingServer.getInstance()
+    logger = logging.getLogger(__name__)
     def __init__(self, vk_api):
         self.api = vk_api
-        preamble=PreambleManager(self.api)
+        self.preamble_manager=PreambleManager(self.api)
         self.user_opts_manager = UserOptsManager(self.api)
 
     def extractBoundingBox(self, dpi, pathToPdf):
@@ -97,4 +99,3 @@ class LatexConverter():
                 
         finally:
             check_output(["rm build/*_%s.*"%sessionId], stderr=STDOUT, shell=True)
-        
