@@ -1,3 +1,4 @@
 peewee
 flask
 vk_api
+celery
