@@ -1,6 +1,7 @@
 import config
 import hmac
 import uuid
+import json
 
 PREAMBLE_PARTS_COUNT = 512
 
@@ -119,20 +120,20 @@ class SecretProtectedPropertyStore:
 
     def get_storage_key(self, user_id):
         if user_id % 2 == 0: # no particular reason, but more unpredictability is better
-            to_hash = str(user_id)+CONFIG['property']
+            to_hash = str(user_id)+PROPERTY
         else:
-            to_hash = CONFIG['property']+str(user_id)
+            to_hash = PROPERTY+str(user_id)
         digest = hmac.HMAC(config.secret, bytes( to_hash, 'utf-8' )).hexdigest()
-        return CONFIG['property']+'-'+digest
+        return PROPERTY+'-'+digest
 
     def __getitem__(self, user_id):
-        if CONFIG['is_bool']:
+        if BOOLEAN:
             return bool(self.api.get(key=self.get_storage_key(user_id)))
         else:
             return self.api.get(key=self.get_storage_key(user_id))
 
     def __setitem__(self, user_id, value):
-        if CONFIG['is_bool']:
+        if BOOLEAN:
             if value:
                 value = hmac.HMAC(config.secret, bytes( str(uuid.uuid4()), 'utf-8' )).hexdigest() # again, no reason, just make it look mysterious
             else:
@@ -140,8 +141,50 @@ class SecretProtectedPropertyStore:
         self.api.set(key=self.get_storage_key(user_id), value=value)
 
 class ManagerStore(SecretProtectedPropertyStore):
-    CONFIG={'property': 'manager', 'is_bool':True}
+    PROPERTY = 'manager'
+    BOOLEAN = True
 
 class DisabledRateLimitStore(SecretProtectedPropertyStore):
-    CONFIG={'property': 'manager', 'is_bool':True}
+    PROPERTY = 'disableRateLimit'
+    BOOLEAN = True
+
+class SignedValuePropertyStore:
+    PROPERTY = 'seecret'
+    DEFAULT_ON_HMAC_FAIL = None
+    SEPARATOR = 'jL~k4F-j^b6!tU+g'
+
+    def __init__(self, api):
+        self.api = api
+
+    def get_default_on_hmac_fail(self):
+        if callable(DEFAULT_ON_HMAC_FAIL):
+            return DEFAULT_ON_HMAC_FAIL()
+        else:
+            return DEFAULT_ON_HMAC_FAIL
+    
+    def get_default_on_no_sep(self):
+        if callable(DEFAULT_ON_NO_SEP):
+            return DEFAULT_ON_NO_SEP()
+        else:
+            return DEFAULT_ON_NO_SEP
+
+    def __getitem__(self, user_id):
+        res = self.api.get(key=CONFIG['property'], user_id=user_id)
+        if SEPARATOR not in res: # may mean that the user has never used the bot before, but may also mean that they've removed this key. How do we protect against that?
+            return self.get_default_on_no_sep()
+
+        data, stored_hmac = res.split(SEPARATOR)
+        data = bytes(data, 'utf-8')
+        my_hmac = hmac.HMAC(config.secret+bytes(str(user_id), 'utf-8'), data).hexdigest()
+        if hmac.compare_digest(stored_hmac, my_hmac):
+            data = json.loads(data) # do not check for errors here, if it passed HMAC check then we know it came from us
+        else:
+            data = self.get_default_on_hmac_fail()
+        return data
+
+    def __setitem__(self, user_id, value):
+        data = json.dumps(value)
+        signature = hmac.HMAC(config.secret+bytes(str(user_id), 'utf-8'), data).hexdigest()
+        data = str(data, 'utf-8')
+        res = self.api.set(key=CONFIG['property'], user_id=user_id, value=data + SEPARATOR + signature)
 
