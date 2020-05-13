@@ -152,6 +152,12 @@ def recv_message(data):
             reply(f'Unknown command "{command[0]}", for list type "/help".')
         return
 
+    RATE_LIM_INTERVAL = 30
+    opt_man = data_managers.UserOptsManager(vkapi)
+    if time.time() - opt_man.get_last_render_time(sender) < RATE_LIM_INTERVAL: # unregistered rate-limiting
+        reply(f'It\'s been only {time.time() - opt_man.get_last_render_time(sender)}, please wait at least {RATE_LIM_INTERVAL} seconds before requesting next render')
+        return
+
     workers = cel.control.inspect(timeout=0.2).ping()
     if workers is None:
         reply('''ERROR: No Celery workers responded to ping!

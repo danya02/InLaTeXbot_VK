@@ -2,6 +2,7 @@ import config
 import hmac
 import uuid
 import json
+import time
 
 PREAMBLE_PARTS_COUNT = 512
 
@@ -109,6 +110,12 @@ class UserOptsManager:
             self.api.storage.set(key='time_in_caption', value='True', user_id=user_id)
         else:
             self.api.storage.set(key='time_in_caption', value='', user_id=user_id)
+
+    def get_last_render_time(self, user_id):
+        return int(self.api.storage.get(key='last_render_time', user_id=user_id) or 0)
+
+    def set_last_render_time(self, user_id, val):
+        self.api.storage.set(key='last_render_time', user_id=user_id, value=int(val))
 
 class SecretProtectedPropertyStore:
     CONFIG = {

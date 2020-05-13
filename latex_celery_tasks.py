@@ -35,6 +35,7 @@ def render_for_user(sender, text):
                 photo_send_kwargs['message'] = f'Rendered in {ttr} seconds'
 
         api.messages.send(**photo_send_kwargs)
+        opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
         api.messages.send(peer_id=sender, message='LaTeX error:\n'+e.args[0], random_id=0)
     except:
@@ -63,6 +64,7 @@ def render_for_groupchat(sender, reply_to, text):
             photo_send_kwargs.update({'message': f'@id{sender}'})
 
         api.messages.send(**photo_send_kwargs)
+        opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
         api.messages.send(peer_id=reply_to, message=f'@id{sender}: LaTeX error:\n'+e.args[0], random_id=0)
     except:
