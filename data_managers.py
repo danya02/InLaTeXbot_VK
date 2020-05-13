@@ -96,9 +96,9 @@ class UserOptsManager:
     
     def set_code_in_caption(self, user_id, value):
         if value:
-            self.api.storage.set(key='code_in_caption', value='True')
+            self.api.storage.set(key='code_in_caption', value='True', user_id=user_id)
         else:
-            self.api.storage.set(key='code_in_caption', value='')
+            self.api.storage.set(key='code_in_caption', value='', user_id=user_id)
 
         return int(self.api.storage.get(key='last_render_time', user_id=user_id) or 0)
 
