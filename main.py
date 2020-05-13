@@ -9,7 +9,7 @@ import data_managers
 app = Flask(__name__)
 vk_session = vk_api.VkApi(token=config.access_token)
 vkapi = vk_session.get_api()
-celery = Celery('latex', broker='redis://localhost')
+cel = Celery('latex', broker='redis://localhost')
 
 def confirmation(data):
     return config.confirmation_string
@@ -138,6 +138,15 @@ def recv_message(data):
                     reply(answer)
         else:
             reply(f'Unknown command "{command[0]}", for list type "/help".')
+        return
+
+    workers = cel.control.inspect(timeout=0.2).ping()
+    if workers is None:
+        reply('''ERROR: No Celery workers responded to ping!
+This is a serious problem!
+
+The bot is currently unable to render images.
+Please contact this bot's admin and inform them of this issue.''')
         return
 
     if sender == reply_to:
