@@ -118,34 +118,32 @@ class UserOptsManager:
         self.api.storage.set(key='last_render_time', user_id=user_id, value=int(val))
 
 class SecretProtectedPropertyStore:
-    CONFIG = {
-            'property': 'seeecret',
-            'is_bool': False
-            }
+    PROPERTY = 'seeecret',
+    BOOLEAN = False
     def __init__(self, api):
         self.api = api
 
     def get_storage_key(self, user_id):
         if user_id % 2 == 0: # no particular reason, but more unpredictability is better
-            to_hash = str(user_id)+PROPERTY
+            to_hash = str(user_id)+self.PROPERTY
         else:
-            to_hash = PROPERTY+str(user_id)
+            to_hash = self.PROPERTY+str(user_id)
         digest = hmac.HMAC(config.secret, bytes( to_hash, 'utf-8' )).hexdigest()
-        return PROPERTY+'-'+digest
+        return self.PROPERTY+'-'+digest
 
     def __getitem__(self, user_id):
-        if BOOLEAN:
-            return bool(self.api.get(key=self.get_storage_key(user_id)))
+        if self.BOOLEAN:
+            return bool(self.api.storage.get(key=self.get_storage_key(user_id), user_id=user_id))
         else:
-            return self.api.get(key=self.get_storage_key(user_id))
+            return self.api.storage.get(key=self.get_storage_key(user_id), user_id=user_id)
 
     def __setitem__(self, user_id, value):
-        if BOOLEAN:
+        if self.BOOLEAN:
             if value:
                 value = hmac.HMAC(config.secret, bytes( str(uuid.uuid4()), 'utf-8' )).hexdigest() # again, no reason, just make it look mysterious
             else:
                 value = ''
-        self.api.set(key=self.get_storage_key(user_id), value=value)
+        self.api.storage.set(user_id=user_id, key=self.get_storage_key(user_id), value=value)
 
 class ManagerStore(SecretProtectedPropertyStore):
     PROPERTY = 'manager'
@@ -158,29 +156,30 @@ class DisabledRateLimitStore(SecretProtectedPropertyStore):
 class SignedValuePropertyStore:
     PROPERTY = 'seecret'
     DEFAULT_ON_HMAC_FAIL = None
+    DEFAULT_ON_NO_SEP = None
     SEPARATOR = 'jL~k4F-j^b6!tU+g'
 
     def __init__(self, api):
         self.api = api
 
     def get_default_on_hmac_fail(self):
-        if callable(DEFAULT_ON_HMAC_FAIL):
-            return DEFAULT_ON_HMAC_FAIL()
+        if callable(self.DEFAULT_ON_HMAC_FAIL):
+            return self.DEFAULT_ON_HMAC_FAIL()
         else:
-            return DEFAULT_ON_HMAC_FAIL
+            return self.DEFAULT_ON_HMAC_FAIL
     
     def get_default_on_no_sep(self):
-        if callable(DEFAULT_ON_NO_SEP):
-            return DEFAULT_ON_NO_SEP()
+        if callable(self.DEFAULT_ON_NO_SEP):
+            return self.DEFAULT_ON_NO_SEP()
         else:
-            return DEFAULT_ON_NO_SEP
+            return self.DEFAULT_ON_NO_SEP
 
     def __getitem__(self, user_id):
-        res = self.api.get(key=CONFIG['property'], user_id=user_id)
-        if SEPARATOR not in res: # may mean that the user has never used the bot before, but may also mean that they've removed this key. How do we protect against that?
+        res = self.api.storage.get(key=self.PROPERTY, user_id=user_id)
+        if self.SEPARATOR not in res: # may mean that the user has never used the bot before, but may also mean that they've removed this key. How do we protect against that?
             return self.get_default_on_no_sep()
 
-        data, stored_hmac = res.split(SEPARATOR)
+        data, stored_hmac = res.split(self.SEPARATOR)
         data = bytes(data, 'utf-8')
         my_hmac = hmac.HMAC(config.secret+bytes(str(user_id), 'utf-8'), data).hexdigest()
         if hmac.compare_digest(stored_hmac, my_hmac):
@@ -193,5 +192,5 @@ class SignedValuePropertyStore:
         data = json.dumps(value)
         signature = hmac.HMAC(config.secret+bytes(str(user_id), 'utf-8'), data).hexdigest()
         data = str(data, 'utf-8')
-        res = self.api.set(key=CONFIG['property'], user_id=user_id, value=data + SEPARATOR + signature)
+        res = self.api.storage.set(key=CONFIG['property'], user_id=user_id, value=data + self.SEPARATOR + signature)
 

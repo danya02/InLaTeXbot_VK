@@ -37,6 +37,14 @@ Settings commands (current settings are in <brackets>):
 /set-dpi <{dpi}> -- set image resolution, higher is better
 '''
 
+    if user_id==config.owner_id:
+        output += f'''
+
+You are the bot owner, so you also have these commands available:
+/ratelimit <@-user> -- enable rate-limiting for this user
+/unratelimit <@-user> -- disable rate-limiting for this user
+/getratelimit <@-user> -- check the state of rate-limiting for this user
+'''
     return output
 
 def reset_preamble(*args, user_id=None):
@@ -103,7 +111,38 @@ def set_caption_time(val, user_id=None):
     opt_man.set_time_in_caption(user_id, val=='1')
     return 'The next renders made for you will ' + ('not ' if val=='0' else "") + 'have the render time as part of the image caption.'
 
+def requires_owner(func):
+    def wrapper(*args, user_id=None):
+        if user_id != config.owner_id:
+            return 'This command is only available to the bot admin'
+        return func(*args)
+    return wrapper
 
+def resolves_userspec(func):
+    def wrapper(userspec):
+        resolved = int(userspec.split('id')[1].split('|')[0])
+        return func(resolved)
+    return wrapper
+
+@requires_owner
+@resolves_userspec
+def unratelimit(user_id):
+    rlstore = data_managers.DisabledRateLimitStore(vkapi)
+    rlstore[user_id] = True
+    return f'Disabled ratelimiting for user id {user_id}'
+
+@requires_owner
+@resolves_userspec
+def ratelimit(user_id):
+    rlstore = data_managers.DisabledRateLimitStore(vkapi)
+    rlstore[user_id] = False
+    return f'Enabled ratelimiting for user id {user_id}'
+
+@requires_owner
+@resolves_userspec
+def getratelimit(user_id):
+    rlstore = data_managers.DisabledRateLimitStore(vkapi)
+    return f'Ratelimiting for user id {user_id} is ' + ('disabled' if rlstore[user_id] else 'enabled')
 
 slash_commands = {
     'help': slash_help,
@@ -114,6 +153,9 @@ slash_commands = {
     'add-preamble': add_preamble,
     'delete-preamble': delete_preamble,
     'set-render-time': set_caption_time,
+    'ratelimit': ratelimit,
+    'unratelimit': unratelimit,
+    'getratelimit': getratelimit,
     }
 
 def recv_message(data):
@@ -152,11 +194,13 @@ def recv_message(data):
             reply(f'Unknown command "{command[0]}", for list type "/help".')
         return
 
-    RATE_LIM_INTERVAL = 30
-    opt_man = data_managers.UserOptsManager(vkapi)
-    if time.time() - opt_man.get_last_render_time(sender) < RATE_LIM_INTERVAL: # unregistered rate-limiting
-        reply(f'It\'s been only {time.time() - opt_man.get_last_render_time(sender)}, please wait at least {RATE_LIM_INTERVAL} seconds before requesting next render')
-        return
+    rlstore = data_managers.DisabledRateLimitStore(vkapi)
+    if not rlstore[sender]:
+        RATE_LIM_INTERVAL = 30
+        opt_man = data_managers.UserOptsManager(vkapi)
+        if time.time() - opt_man.get_last_render_time(sender) < RATE_LIM_INTERVAL: # unregistered rate-limiting
+            reply(f'It\'s been only {time.time() - opt_man.get_last_render_time(sender)}, please wait at least {RATE_LIM_INTERVAL} seconds before requesting next render')
+            return
 
     workers = cel.control.inspect(timeout=0.2).ping()
     if workers is None:
