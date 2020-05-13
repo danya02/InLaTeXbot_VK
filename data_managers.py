@@ -100,7 +100,14 @@ class UserOptsManager:
         else:
             self.api.storage.set(key='code_in_caption', value='', user_id=user_id)
 
-        return int(self.api.storage.get(key='last_render_time', user_id=user_id) or 0)
+    def get_time_in_caption(self, user_id):
+        return bool(self.api.storage.get(user_id=user_id, key='time_in_caption'))
+    
+    def set_time_in_caption(self, user_id, value):
+        if value:
+            self.api.storage.set(key='time_in_caption', value='True', user_id=user_id)
+        else:
+            self.api.storage.set(key='time_in_caption', value='', user_id=user_id)
 
 class SecretProtectedPropertyStore:
     CONFIG = {
@@ -137,3 +144,4 @@ class ManagerStore(SecretProtectedPropertyStore):
 
 class DisabledRateLimitStore(SecretProtectedPropertyStore):
     CONFIG={'property': 'manager', 'is_bool':True}
+

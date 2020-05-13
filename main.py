@@ -20,6 +20,7 @@ def default_data_handler(data):
 def slash_help(*args, user_id=None):
     opt_man = data_managers.UserOptsManager(vkapi)
     cic = opt_man.get_code_in_caption(user_id)
+    tic = opt_man.get_time_in_caption(user_id)
     dpi = opt_man.get_dpi(user_id)
     output = f'''Command list, values in <brackets> are required parameters:
 /help -- this help
@@ -32,6 +33,7 @@ Preamble commands:
 
 Settings commands (current settings are in <brackets>):
 /set-caption-code <{1 if cic else 0}> -- do you want to have LaTeX code in the message caption?
+/set-render-time <{1 if tic else 0}> -- do you want render time in the message caption?
 /set-dpi <{dpi}> -- set image resolution, higher is better
 '''
 
@@ -44,10 +46,10 @@ def reset_preamble(*args, user_id=None):
 
 def set_caption_code(val, user_id=None):
     if val not in list('01'):
-        return 'Please provide a (0 for no caption) or (1 for caption) as parameter.'
+        return 'Please provide a (0 for no) or (1 for yes) as parameter.'
     opt_man = data_managers.UserOptsManager(vkapi)
     opt_man.set_code_in_caption(user_id, val=='1')
-    return 'The next renders made for you will ' + ('not ' if v=='0' else "") + 'have their code as the image caption.'
+    return 'The next renders made for you will ' + ('not ' if val=='0' else "") + 'have their code as part of the image caption.'
 
 def set_dpi(val, user_id=None):
     try:
@@ -94,6 +96,13 @@ def delete_preamble(ind, user_id=None):
     except IndexError:
         return f'There is no line with index {ind}, check /show-preamble'
 
+def set_caption_time(val, user_id=None):
+    if val not in list('01'):
+        return 'Please provide a (0 for no) or (1 for yes) as parameter.'
+    opt_man = data_managers.UserOptsManager(vkapi)
+    opt_man.set_time_in_caption(user_id, val=='1')
+    return 'The next renders made for you will ' + ('not ' if val=='0' else "") + 'have the render time as part of the image caption.'
+
 
 
 slash_commands = {
@@ -104,6 +113,7 @@ slash_commands = {
     'show-preamble': show_preamble,
     'add-preamble': add_preamble,
     'delete-preamble': delete_preamble,
+    'set-render-time': set_caption_time,
     }
 
 def recv_message(data):
