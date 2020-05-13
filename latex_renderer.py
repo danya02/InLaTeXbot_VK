@@ -13,8 +13,11 @@ class LatexConverter():
         self.user_opts_manager = UserOptsManager(self.api)
 
     def extractBoundingBox(self, dpi, pathToPdf):
-        bbox = check_output("gs -q -dBATCH -dNOPAUSE -sDEVICE=bbox "+pathToPdf, 
-                            stderr=STDOUT, shell=True).decode("ascii")
+        try:
+            bbox = check_output("gs -q -dBATCH -dNOPAUSE -sDEVICE=bbox "+pathToPdf, 
+                                stderr=STDOUT, shell=True).decode("ascii")
+        except CalledProcessError:
+            raise ValueError('Failed while getting result bounding box. Your expression is invalid somehow.\nIf you think your expression is valid, please contact this bot\'s admin.')
         bounds = [int(_) for _ in bbox[bbox.index(":")+2:bbox.index("\n")].split(" ")]
         llc = bounds[:2]
         ruc = bounds[2:]

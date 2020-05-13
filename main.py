@@ -116,8 +116,10 @@ def recv_message(data):
     
     try:
         text = message['text']
+        if not text: raise KeyError
     except KeyError:
-        reply('Your message did not contain text, which is required.')
+        reply('Your message did not contain text, but it is required.')
+        return
 
     grp_ref = re.search('\\[.*\\|.*\\] ', text)
     if grp_ref != None:
