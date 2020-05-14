@@ -5,6 +5,7 @@ import vk_api
 from latex_celery_tasks import *
 import traceback
 import data_managers
+import json
 
 app = Flask(__name__)
 vk_session = vk_api.VkApi(token=config.access_token)
@@ -211,6 +212,12 @@ def recv_message(data):
     def reply(t):
         vkapi.messages.send(peer_id=reply_to, message=(f'@id{sender}: ' if sender!=reply_to else '')+t, random_id=0)
     
+    if 'payload' in message:
+        payload = json.loads( bytes(message['payload'], 'utf-8') )
+        if 'command' in payload and payload['command']=='start':
+            reply('Welcome to InLaTeX! To begin, type a LaTeX expression to render it, or type "/help" for a command list.')
+            return
+
     try:
         text = message['text']
         if not text: raise KeyError
