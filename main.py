@@ -37,13 +37,23 @@ Settings commands (current settings are in <brackets>):
 /set-dpi <{dpi}> -- set image resolution, higher is better
 '''
 
-    if user_id==config.owner_id:
+    is_manager = data_managers.ManagerStore(vkapi)
+    if is_manager[user_id]:
         output += f'''
 
-You are the bot owner, so you also have these commands available:
+As a manager, you also have these commands:
+
 /ratelimit <@-user> -- enable rate-limiting for this user
 /unratelimit <@-user> -- disable rate-limiting for this user
 /getratelimit <@-user> -- check the state of rate-limiting for this user
+'''
+    if user_id==config.owner_id:
+        output += f'''
+
+As the bot owner, you also have these commands:
+/promote <@-user> -- make user a manager
+/demote <@-user> -- stop user being a manager
+/get-promoted <@-user> -- check whether this user is a manager
 '''
     return output
 
@@ -60,11 +70,13 @@ def set_caption_code(val, user_id=None):
     return 'The next renders made for you will ' + ('not ' if val=='0' else "") + 'have their code as part of the image caption.'
 
 def set_dpi(val, user_id=None):
+    rlstore = data_managers.DisabledRateLimitStore(vkapi)
+    max_dpi = 1200 if not rlstore[user_id] else 10000
     try:
         val = int(val)
-        if val not in range(20, 4001):raise ValueError
+        if val not in range(20, max_dpi):raise ValueError
     except ValueError:
-        return 'Please provide an integer in the range (20, 4000).'
+        return f'Please provide an integer in the range (20, {max_dpi}). The default value is 300.'
 
     opt_man = data_managers.UserOptsManager(vkapi)
     opt_man.set_dpi(user_id, val)
@@ -118,31 +130,61 @@ def requires_owner(func):
         return func(*args)
     return wrapper
 
+def requires_manager(func):
+    def wrapper(*args, user_id=None):
+        is_manager = data_managers.ManagerStore(vkapi)
+        if is_manager[user_id]:
+            return func(*args)
+        else: 
+            return 'This command is only available to managers. Contact the bot\'s admin to become one.'
+    return wrapper
+
 def resolves_userspec(func):
     def wrapper(userspec):
         resolved = int(userspec.split('id')[1].split('|')[0])
         return func(resolved)
     return wrapper
 
-@requires_owner
+@requires_manager
 @resolves_userspec
 def unratelimit(user_id):
     rlstore = data_managers.DisabledRateLimitStore(vkapi)
     rlstore[user_id] = True
     return f'Disabled ratelimiting for user id {user_id}'
 
-@requires_owner
+@requires_manager
 @resolves_userspec
 def ratelimit(user_id):
     rlstore = data_managers.DisabledRateLimitStore(vkapi)
     rlstore[user_id] = False
     return f'Enabled ratelimiting for user id {user_id}'
 
-@requires_owner
+@requires_manager
 @resolves_userspec
 def getratelimit(user_id):
     rlstore = data_managers.DisabledRateLimitStore(vkapi)
     return f'Ratelimiting for user id {user_id} is ' + ('disabled' if rlstore[user_id] else 'enabled')
+
+@requires_owner
+@resolves_userspec
+def promote(user_id):
+    is_manager = data_managers.ManagerStore(vkapi)
+    is_manager[user_id] = True
+    return f'User {user_id} is now a manager'
+
+@requires_owner
+@resolves_userspec
+def demote(user_id):
+    is_manager = data_managers.ManagerStore(vkapi)
+    is_manager[user_id] = False
+    return f'User {user_id} is no longer a manager'
+
+@requires_owner
+@resolves_userspec
+def get_promoted(user_id):
+    is_manager = data_managers.ManagerStore(vkapi)
+    return f'User {user_id} is {"not" if not is_manager[user_id] else ""} a manager'
+
 
 slash_commands = {
     'help': slash_help,
@@ -156,6 +198,9 @@ slash_commands = {
     'ratelimit': ratelimit,
     'unratelimit': unratelimit,
     'getratelimit': getratelimit,
+    'promote': promote,
+    'demote': demote,
+    'get-promoted': get_promoted,
     }
 
 def recv_message(data):
