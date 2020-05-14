@@ -6,10 +6,13 @@ from latex_celery_tasks import *
 import traceback
 import data_managers
 import json
+import stats
+import utils
 
 app = Flask(__name__)
 vk_session = vk_api.VkApi(token=config.access_token)
 vkapi = vk_session.get_api()
+utils = utils.VKUtilities(vkapi)
 cel = Celery('latex', broker='redis://localhost')
 
 def confirmation(data):
@@ -23,7 +26,7 @@ def slash_help(*args, user_id=None):
     cic = opt_man.get_code_in_caption(user_id)
     tic = opt_man.get_time_in_caption(user_id)
     dpi = opt_man.get_dpi(user_id)
-    output = f'''Command list, values in <brackets> are required parameters:
+    output = f'''Command list, values in <brackets> are required parameters, in {braces} are optional:
 /help -- this help
 
 Preamble commands:
@@ -47,6 +50,9 @@ As a manager, you also have these commands:
 /ratelimit <@-user> -- enable rate-limiting for this user
 /unratelimit <@-user> -- disable rate-limiting for this user
 /getratelimit <@-user> -- check the state of rate-limiting for this user
+/top-by-time {how-many} -- get top users by time taken to render
+/top-by-renders {how-many} -- get top users by render requests
+/top-by-errors {how-many} -- get top users by errors during rendering
 '''
     if user_id==config.owner_id:
         output += f'''
@@ -81,6 +87,7 @@ def set_dpi(val, user_id=None):
 
     opt_man = data_managers.UserOptsManager(vkapi)
     opt_man.set_dpi(user_id, val)
+    return f'Your DPI has been updated to {val}'
 
 def show_preamble(user_id=None):
     preamb_man = data_managers.PreambleManager(vkapi)
@@ -142,7 +149,7 @@ def requires_manager(func):
 
 def resolves_userspec(func):
     def wrapper(userspec):
-        resolved = int(userspec.split('id')[1].split('|')[0])
+        resolved = utils.resolve_to_user_id(userspec)
         return func(resolved)
     return wrapper
 
@@ -151,14 +158,24 @@ def resolves_userspec(func):
 def unratelimit(user_id):
     rlstore = data_managers.DisabledRateLimitStore(vkapi)
     rlstore[user_id] = True
-    return f'Disabled ratelimiting for user id {user_id}'
+    err = ''
+    try:
+        vkapi.messages.send(user_id=user_id, message='Your rate-limit has been removed.', random_id=0)
+    except:
+        err = 'But I can\'t send them messages, they may have blocked them or not started a chat with the bot.'
+    return f'Disabled ratelimiting for user id {user_id}. {err}'
 
 @requires_manager
 @resolves_userspec
 def ratelimit(user_id):
     rlstore = data_managers.DisabledRateLimitStore(vkapi)
     rlstore[user_id] = False
-    return f'Enabled ratelimiting for user id {user_id}'
+    err = ''
+    try:
+        vkapi.messages.send(user_id=user_id, message='Rate-limiting has been imposed on you.', random_id=0)
+    except:
+        err = 'But I can\'t send them messages, they may have blocked them or not started a chat with the bot.'
+    return f'Enabled ratelimiting for user id {user_id}. {err}'
 
 @requires_manager
 @resolves_userspec
@@ -166,19 +183,59 @@ def getratelimit(user_id):
     rlstore = data_managers.DisabledRateLimitStore(vkapi)
     return f'Ratelimiting for user id {user_id} is ' + ('disabled' if rlstore[user_id] else 'enabled')
 
+@requires_manager
+def top_by_errors(how_many=10, user_id=None):
+    how_many = int(how_many)
+    data = stats.get_top_by_errors(how_many)
+    outp = f'Top {len(data)} users by errors during rendering during last 7 days:\n\n'
+    for index, item in enumerate(data):
+        id, err_count = item
+        outp += f'{index+1}. {utils.get_at_spec(id)} -- {err_count} errors\n'
+    return outp
+
+@requires_manager
+def top_by_renders(how_many=10, user_id=None):
+    how_many = int(how_many)
+    data = stats.get_top_by_renders(how_many)
+    outp = f'Top {len(data)} users by errors during rendering during last 7 days:\n\n'
+    for index, item in enumerate(data):
+        id, renders = item
+        outp += f'{index+1}. {utils.get_at_spec(id)} -- {renders} renders\n'
+    return outp
+
+@requires_manager
+def top_by_time(how_many=10, user_id=None):
+    how_many = int(how_many)
+    data = stats.get_top_by_time_taken(how_many)
+    outp = f'Top {len(data)} users by rendering time during last 7 days:\n\n'
+    for index, item in enumerate(data):
+        id, time_taken = item
+        outp += f'{index+1}. {utils.get_at_spec(id)} -- {time_taken} seconds\n'
+    return outp
+    
 @requires_owner
 @resolves_userspec
 def promote(user_id):
     is_manager = data_managers.ManagerStore(vkapi)
     is_manager[user_id] = True
-    return f'User {user_id} is now a manager'
+    err = ''
+    try:
+        vkapi.messages.send(user_id=user_id, message='You are now a manager.', random_id=0)
+    except:
+        err = 'But I can\'t send them messages, they may have blocked them or not started a chat with the bot.'
+    return f'User {user_id} is now a manager. {err}'
 
 @requires_owner
 @resolves_userspec
 def demote(user_id):
     is_manager = data_managers.ManagerStore(vkapi)
     is_manager[user_id] = False
-    return f'User {user_id} is no longer a manager'
+    err = ''
+    try:
+        vkapi.messages.send(user_id=user_id, message='You are no longer a manager.', random_id=0)
+    except:
+        err = 'But I can\'t send them messages, they may have blocked them or not started a chat with the bot.'
+    return f'User {user_id} is no longer a manager. {err}'
 
 @requires_owner
 @resolves_userspec
@@ -202,6 +259,9 @@ slash_commands = {
     'promote': promote,
     'demote': demote,
     'get-promoted': get_promoted,
+    'top-by-errors': top_by_errors,
+    'top-by-time': top_by_time,
+    'top-by-renders': top_by_renders,
     }
 
 def recv_message(data):
@@ -235,13 +295,15 @@ def recv_message(data):
             fun = slash_commands[command[0]]
             try:
                 answer = fun(*(command [1:]), user_id=sender)
+                if answer:
+                    reply(answer)
             except TypeError:
                 reply('Wrong number of arguments for command, for command list type "/help".')
             except:
-                reply('ERROR\n'+traceback.format_exc())
-            else:
-                if answer:
-                    reply(answer)
+                try:
+                    reply('ERROR\n'+traceback.format_exc())
+                except:
+                    reply('ERROR while sending error reply! Contact admin!!!')
         else:
             reply(f'Unknown command "{command[0]}", for list type "/help".')
         return
@@ -254,7 +316,7 @@ def recv_message(data):
             reply(f'It\'s been only {time.time() - opt_man.get_last_render_time(sender)}, please wait at least {RATE_LIM_INTERVAL} seconds before requesting next render')
             return
 
-    workers = cel.control.inspect(timeout=0.2).ping()
+    workers = cel.control.inspect(timeout=0.75).ping()
     if workers is None:
         reply('''ERROR: No Celery workers responded to ping!
 This is a serious problem!
@@ -293,4 +355,3 @@ def api():
         return 'ok'
     else:
         return res
-

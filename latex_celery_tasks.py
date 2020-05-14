@@ -6,6 +6,7 @@ import uuid
 import traceback
 import data_managers
 import time
+import stats
 
 cel = Celery('latex_celery_tasks', broker='redis://localhost')
 vk_session = vk_api.VkApi(token=config.access_token)
@@ -14,6 +15,8 @@ conv = LatexConverter(api)
 
 @cel.task
 def render_for_user(sender, text):
+    error = False
+    ttr = 0
     try:
         t1 = time.time()
         png, pdf = conv.convertExpressionToPng(text, sender, str(uuid.uuid4()), returnPdf=True)
@@ -38,10 +41,18 @@ def render_for_user(sender, text):
         opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
         api.messages.send(peer_id=sender, message='LaTeX error:\n'+e.args[0], random_id=0)
+        error = True
     except:
         api.messages.send(peer_id=sender, message='ERROR\n'+traceback.format_exc(), random_id=0)
+        error = True
+    finally:
+        stats.record_render(sender, ttr, error)
+        stats.delete_older_than() 
+
 @cel.task
 def render_for_groupchat(sender, reply_to, text):
+    ttr = 0
+    error = False
     try:
         t1 = time.time()
         png = conv.convertExpressionToPng(text, sender, str(uuid.uuid4()))
@@ -67,5 +78,10 @@ def render_for_groupchat(sender, reply_to, text):
         opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
         api.messages.send(peer_id=reply_to, message=f'@id{sender}: LaTeX error:\n'+e.args[0], random_id=0)
+        error = True
     except:
         api.messages.send(peer_id=reply_to, message=f'@id{sender}: ERROR\n'+traceback.format_exc(), random_id=0)
+        error = True
+    finally:
+        stats.record_render(sender, ttr, error)
+        stats.delete_older_than() 
