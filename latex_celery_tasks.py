@@ -13,6 +13,9 @@ vk_session = vk_api.VkApi(token=config.access_token)
 api = vk_session.get_api()
 conv = LatexConverter(api)
 
+def ERROR(*args): # this is where main.py will put their error function.
+    pass
+
 @cel.task
 def render_for_user(sender, text):
     error = False
@@ -43,7 +46,7 @@ def render_for_user(sender, text):
         api.messages.send(peer_id=sender, message='LaTeX error:\n'+e.args[0], random_id=0)
         error = True
     except:
-        api.messages.send(peer_id=sender, message='ERROR\n'+traceback.format_exc(), random_id=0)
+        api.messages.send(peer_id=sender, message='ERROR: see '+ERROR(traceback.format_exc(), sender, text),  random_id=0)
         error = True
     finally:
         stats.record_render(sender, ttr, error)
@@ -80,7 +83,7 @@ def render_for_groupchat(sender, reply_to, text):
         api.messages.send(peer_id=reply_to, message=f'@id{sender}: LaTeX error:\n'+e.args[0], random_id=0)
         error = True
     except:
-        api.messages.send(peer_id=reply_to, message=f'@id{sender}: ERROR\n'+traceback.format_exc(), random_id=0)
+        api.messages.send(peer_id=reply_to, message='@id{sender}: ERROR, see '+ERROR(traceback.format_exc(), sender, text),  random_id=0)
         error = True
     finally:
         stats.record_render(sender, ttr, error)

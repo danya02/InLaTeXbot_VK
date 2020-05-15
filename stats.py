@@ -1,5 +1,6 @@
 from peewee import *
 import datetime
+import uuid
 
 dbase = MySQLDatabase('inlatex', user='inlatex', password='inlatex')
 #dbase = SqliteDatabase('/tmp/inlatex.db')
@@ -18,6 +19,13 @@ class Render(MyModel):
     when = DateTimeField(default=datetime.datetime.now)
     was_error = BooleanField(default=False)
 
+class Error(MyModel):
+    uuid = UUIDField(default=uuid.uuid4)
+    trace = TextField()
+    associated_user_id = IntegerField(null=True) # may also be a ForeignKeyField, but better not to defend against errors here
+    caused_by_text = TextField(null=True)
+    when = DateTimeField(default=datetime.datetime.now)
+
 def uses_dbase(fn):
     def wrapper(*args, **kwargs):
         try:
@@ -32,7 +40,7 @@ def uses_dbase(fn):
     return wrapper
 
 dbase.connect()
-dbase.create_tables([User, Render])
+dbase.create_tables([User, Render, Error])
 dbase.close()
 
 @uses_dbase
@@ -69,3 +77,24 @@ def get_top_by_renders(num=10):
 def record_render(user_id, time_taken, error=False):
     user = User.get_or_create(user_id=user_id)[0]
     Render.create(user=user, time_taken=time_taken, was_error=error)
+
+@uses_dbase
+def record_error(trace, user_id=None, text=None):
+    err = Error.create(trace=trace, associated_user_id=user_id, caused_by_text=text)
+    return str(err.uuid)
+
+@uses_dbase
+def get_error(uid):
+    return Error.get(uuid=uid)
+
+@uses_dbase
+def delete_error(uid):
+    Error.get(uuid=uid).delete_instance()
+
+@uses_dbase
+def delete_all_errors():
+    return Error.delete().execute()
+
+@uses_dbase
+def list_latest_errors(how_many=10):
+    return [i.uuid for i in Error.select().order_by(Error.when.desc()).limit(how_many)]

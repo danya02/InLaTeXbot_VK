@@ -1,8 +1,10 @@
 import config
-from flask import Flask, request
+import flask
+from flask import Flask, request, url_for
+from werkzeug.exceptions import HTTPException
 import re
 import vk_api
-from latex_celery_tasks import *
+import latex_celery_tasks
 import traceback
 import data_managers
 import json
@@ -13,7 +15,33 @@ app = Flask(__name__)
 vk_session = vk_api.VkApi(token=config.access_token)
 vkapi = vk_session.get_api()
 utils = utils.VKUtilities(vkapi)
-cel = Celery('latex', broker='redis://localhost')
+cel = latex_celery_tasks.Celery('latex', broker='redis://localhost')
+
+def ERROR(trace, user_id=None, text=None):
+    uid = stats.record_error(trace, user_id, text)
+    url = url_for('error_view', uid=uid, _external=True)
+    vkapi.messages.send(peer_id=config.owner_id, message='Unknown error encountered! Details at '+url, random_id=0)
+    return url 
+
+@app.errorhandler(Exception)
+def error(error):
+    # pass through HTTP errors
+    if isinstance(error, HTTPException):
+        return error
+    traceback.print_exc()
+    ERROR(traceback.format_exc(), None, None)
+    return 'ok'
+
+
+@app.route('/view-error/<uid>')
+def error_view(uid): # TODO: render as HTML
+    try:
+        err = stats.get_error(uid)
+        return err.trace
+    except stats.Error.DoesNotExist:
+        return 'no such error', 404
+    except:
+        return traceback.format_exc()
 
 def confirmation(data):
     return config.confirmation_string
@@ -26,7 +54,7 @@ def slash_help(*args, user_id=None):
     cic = opt_man.get_code_in_caption(user_id)
     tic = opt_man.get_time_in_caption(user_id)
     dpi = opt_man.get_dpi(user_id)
-    output = f'''Command list, values in <brackets> are required parameters, in {braces} are optional:
+    output = f'''Command list, values in <brackets> are required parameters, in [brackets] are optional:
 /help -- this help
 
 Preamble commands:
@@ -50,9 +78,9 @@ As a manager, you also have these commands:
 /ratelimit <@-user> -- enable rate-limiting for this user
 /unratelimit <@-user> -- disable rate-limiting for this user
 /getratelimit <@-user> -- check the state of rate-limiting for this user
-/top-by-time {how-many} -- get top users by time taken to render
-/top-by-renders {how-many} -- get top users by render requests
-/top-by-errors {how-many} -- get top users by errors during rendering
+/top-by-time [how-many]-- get top users by time taken to render
+/top-by-renders [how-many] -- get top users by render requests
+/top-by-errors [how-many] -- get top users by errors during rendering
 '''
     if user_id==config.owner_id:
         output += f'''
@@ -61,6 +89,9 @@ As the bot owner, you also have these commands:
 /promote <@-user> -- make user a manager
 /demote <@-user> -- stop user being a manager
 /get-promoted <@-user> -- check whether this user is a manager
+/delete-error <uuid> -- delete an error report by its uuid
+/delete-all-errors -- delete all error reports
+/show-errors [how-many] -- show a list of error reports
 '''
     return output
 
@@ -243,6 +274,35 @@ def get_promoted(user_id):
     is_manager = data_managers.ManagerStore(vkapi)
     return f'User {user_id} is {"not" if not is_manager[user_id] else ""} a manager'
 
+@requires_owner
+def delete_error(uid):
+    try:
+        if uid.startswith(url_for('error_view', uid='', _external=True)):
+            uid = uid.split(url_for('error_view', uid='', _external=True))[1]
+        stats.delete_error(uid)
+        return 'Deleted error '+uid
+    except:
+        return 'Error when deleting error: \n\n'+traceback.format_exc()
+
+@requires_owner
+def delete_all_errors():
+    try:
+        rows = stats.delete_all_errors()
+        return 'Deleted '+str(rows)+' errors'
+    except:
+        return 'Error when deleting errors: \n\n'+traceback.format_exc()
+
+@requires_owner
+def show_errors(how_many=10):
+    how_many = int(how_many)
+    outp = ''
+    for i in stats.list_latest_errors(how_many):
+        outp += url_for('error_view', uid=i, _external=True)+'\n'
+    return outp
+
+@requires_manager
+def error_out():
+    raise Exception('Testing exceptions')
 
 slash_commands = {
     'help': slash_help,
@@ -262,6 +322,10 @@ slash_commands = {
     'top-by-errors': top_by_errors,
     'top-by-time': top_by_time,
     'top-by-renders': top_by_renders,
+    'delete-error': delete_error,
+    'delete-all-errors':delete_all_errors,
+    'show-errors':show_errors,
+    'error-out':error_out,
     }
 
 def recv_message(data):
@@ -300,10 +364,7 @@ def recv_message(data):
             except TypeError:
                 reply('Wrong number of arguments for command, for command list type "/help".')
             except:
-                try:
-                    reply('ERROR\n'+traceback.format_exc())
-                except:
-                    reply('ERROR while sending error reply! Contact admin!!!')
+                reply('ERROR: see '+ERROR(traceback.format_exc(), reply_to, text))
         else:
             reply(f'Unknown command "{command[0]}", for list type "/help".')
         return
@@ -322,13 +383,15 @@ def recv_message(data):
 This is a serious problem!
 
 The bot is currently unable to render images.
-Please contact this bot's admin and inform them of this issue.''')
+A report has been sent to the bot's admin.''')
+        ERROR('Celery ping failed', sender_id, text)
         return
 
+    latex_celery_tasks.ERROR = ERROR
     if sender == reply_to:
-        render_for_user.apply_async((sender, text))
+        latex_celery_tasks.render_for_user.apply_async((sender, text))
     else:
-        render_for_groupchat.apply_async((sender, reply_to, text))
+        latex_celery_tasks.render_for_groupchat.apply_async((sender, reply_to, text))
 
 type_map = {
 'confirmation': confirmation,
@@ -336,10 +399,6 @@ type_map = {
 }
 
 
-@app.errorhandler(Exception)
-def error(error):
-    traceback.print_exc()
-    return 'ok'
 
 @app.route('/')
 def index():
@@ -347,11 +406,15 @@ def index():
 
 @app.route('/api', methods=['POST'])
 def api():
-    data = request.get_json(force=True)
-    type = data['type']
-    fun = type_map.get(type, default_data_handler)
-    res = fun(data)
-    if res is None:
-        return 'ok'
-    else:
-        return res
+    data = 'failed on get_json'
+    try:
+        data = request.get_json(force=True)
+        type = data['type']
+        fun = type_map.get(type, default_data_handler)
+        res = fun(data)
+        if res is None:
+            return 'ok'
+        else:
+            return res
+    except:
+        ERROR(traceback.format_exc(), None, str(data))
