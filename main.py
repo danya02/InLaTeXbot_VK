@@ -13,6 +13,7 @@ import utils
 import time
 
 app = Flask(__name__)
+app.config['SERVER_NAME'] = 'https://inlatex.danya02.ru'
 vk_session = vk_api.VkApi(token=config.access_token)
 vkapi = vk_session.get_api()
 utils = utils.VKUtilities(vkapi)

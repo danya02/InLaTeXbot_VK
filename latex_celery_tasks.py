@@ -17,7 +17,12 @@ utils = utils.VKUtilities(api)
 
 
 def ERROR(*args): # this is where main.py will put their error function.
-    pass
+    import sys
+    sys.path.append('/data/InLaTeXbot_VK')
+    from main import ERROR as mainERROR
+    from main import app
+    with app.app_context():
+        return mainERROR(*args)
 
 @cel.task
 def render_for_user(sender, text):
@@ -29,8 +34,12 @@ def render_for_user(sender, text):
         ttr = time.time()-t1
         upload = vk_api.upload.VkUpload(vk_session)
 
+#        doc = upload.document_message(pdf, title='LaTeX expression', peer_id=sender)
+
         photo = upload.photo_messages(png)[0]
         photo_send_kwargs = {'peer_id':sender, 'attachment':f'photo{photo["owner_id"]}_{photo["id"]}', 'random_id':0, 'message':''}
+
+#        doc_kw = {'peer_id': sender, 'attachment': f'doc{doc["owner_id"]}_{doc["id"]}'}
 
         opt_man = data_managers.UserOptsManager(api)
         cic = opt_man.get_code_in_caption(sender)
@@ -44,6 +53,7 @@ def render_for_user(sender, text):
                 photo_send_kwargs['message'] = f'Rendered in {ttr} seconds'
 
         api.messages.send(**photo_send_kwargs)
+#        api.messages.send(**doc_send_kwargs)
         opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
         api.messages.send(peer_id=sender, message='LaTeX error:\n'+e.args[0], random_id=0)
@@ -83,7 +93,7 @@ def render_for_groupchat(sender, reply_to, text):
         api.messages.send(**photo_send_kwargs)
         opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
-        api.messages.send(peer_id=reply_to, message=f'{utils.get_at_spec(sender): LaTeX error:\n'+e.args[0], random_id=0)
+        api.messages.send(peer_id=reply_to, message=f'{utils.get_at_spec(sender)}: LaTeX error:\n'+e.args[0], random_id=0)
         error = True
     except:
         api.messages.send(peer_id=reply_to, message='{utils.get_at_spec(sender)}: ERROR, see '+ERROR(traceback.format_exc(), sender, text),  random_id=0)
