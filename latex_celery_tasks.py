@@ -24,6 +24,19 @@ def ERROR(*args): # this is where main.py will put their error function.
     with app.app_context():
         return mainERROR(*args)
 
+def upload_doc(doc, peer_id, upload): # because vk_api is broken
+    # step 1: get server
+    server = api.docs.getMessagesUploadServer(peer_id=peer_id)['upload_url']
+
+    # step 2: upload to server, get token
+    resp = upload.http.post(server, files={'file': ('expression.pdf', doc.read())}).json()
+
+    # step 3: save the file by token
+    resp.update({'title': 'LaTeX expression', 'type': 'doc'})
+    doc = api.docs.save(**resp)['doc']
+    return f'doc{doc["owner_id"]}_{doc["id"]}'
+
+
 @cel.task
 def render_for_user(sender, text):
     error = False
@@ -34,12 +47,10 @@ def render_for_user(sender, text):
         ttr = time.time()-t1
         upload = vk_api.upload.VkUpload(vk_session)
 
-#        doc = upload.document_message(pdf, title='LaTeX expression', peer_id=sender)
 
         photo = upload.photo_messages(png)[0]
         photo_send_kwargs = {'peer_id':sender, 'attachment':f'photo{photo["owner_id"]}_{photo["id"]}', 'random_id':0, 'message':''}
 
-#        doc_kw = {'peer_id': sender, 'attachment': f'doc{doc["owner_id"]}_{doc["id"]}'}
 
         opt_man = data_managers.UserOptsManager(api)
         cic = opt_man.get_code_in_caption(sender)
@@ -52,8 +63,9 @@ def render_for_user(sender, text):
             else:
                 photo_send_kwargs['message'] = f'Rendered in {ttr} seconds'
 
+        doc_send_kwargs = {'peer_id': sender, 'attachment': upload_doc(pdf, sender, upload), 'message': photo_send_kwargs['message'], 'random_id': 0}
         api.messages.send(**photo_send_kwargs)
-#        api.messages.send(**doc_send_kwargs)
+        api.messages.send(**doc_send_kwargs)
         opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
         api.messages.send(peer_id=sender, message='LaTeX error:\n'+e.args[0], random_id=0)
