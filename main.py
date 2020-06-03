@@ -1,6 +1,6 @@
 import config
 import flask
-from flask import Flask, request, url_for
+from flask import Flask, request, url_for, render_template
 from werkzeug.exceptions import HTTPException
 import re
 import vk_api
@@ -10,6 +10,7 @@ import data_managers
 import json
 import stats
 import utils
+import time
 
 app = Flask(__name__)
 vk_session = vk_api.VkApi(token=config.access_token)
@@ -34,10 +35,10 @@ def error(error):
 
 
 @app.route('/view-error/<uid>')
-def error_view(uid): # TODO: render as HTML
+def error_view(uid):
     try:
         err = stats.get_error(uid)
-        return err.trace
+        return render_template('error-report.html', err=err)
     except stats.Error.DoesNotExist:
         return 'no such error', 404
     except:
@@ -81,6 +82,7 @@ As a manager, you also have these commands:
 /top-by-time [how-many]-- get top users by time taken to render
 /top-by-renders [how-many] -- get top users by render requests
 /top-by-errors [how-many] -- get top users by errors during rendering
+/error-out -- intentionally cause an exception to test the error reporting feature
 '''
     if user_id==config.owner_id:
         output += f'''
@@ -180,7 +182,10 @@ def requires_manager(func):
 
 def resolves_userspec(func):
     def wrapper(userspec):
-        resolved = utils.resolve_to_user_id(userspec)
+        try:
+            resolved = utils.resolve_to_user_id(userspec)
+        except:
+            return 'Failed while resolving userspec, see '+ERROR(traceback.format_exc(), None, userspec)
         return func(resolved)
     return wrapper
 
@@ -206,13 +211,13 @@ def ratelimit(user_id):
         vkapi.messages.send(user_id=user_id, message='Rate-limiting has been imposed on you.', random_id=0)
     except:
         err = 'But I can\'t send them messages, they may have blocked them or not started a chat with the bot.'
-    return f'Enabled ratelimiting for user id {user_id}. {err}'
+    return f'Enabled ratelimiting for user {utils.get_at_spec(user_id)}. {err}'
 
 @requires_manager
 @resolves_userspec
 def getratelimit(user_id):
     rlstore = data_managers.DisabledRateLimitStore(vkapi)
-    return f'Ratelimiting for user id {user_id} is ' + ('disabled' if rlstore[user_id] else 'enabled')
+    return f'Ratelimiting for user {utils.get_at_spec(user_id)} is ' + ('disabled' if rlstore[user_id] else 'enabled')
 
 @requires_manager
 def top_by_errors(how_many=10, user_id=None):
@@ -254,7 +259,7 @@ def promote(user_id):
         vkapi.messages.send(user_id=user_id, message='You are now a manager.', random_id=0)
     except:
         err = 'But I can\'t send them messages, they may have blocked them or not started a chat with the bot.'
-    return f'User {user_id} is now a manager. {err}'
+    return f'User {user.get_at_spec(user_id)} is now a manager. {err}'
 
 @requires_owner
 @resolves_userspec
@@ -266,7 +271,7 @@ def demote(user_id):
         vkapi.messages.send(user_id=user_id, message='You are no longer a manager.', random_id=0)
     except:
         err = 'But I can\'t send them messages, they may have blocked them or not started a chat with the bot.'
-    return f'User {user_id} is no longer a manager. {err}'
+    return f'User {utils.get_at_spec(user_id)} is no longer a manager. {err}'
 
 @requires_owner
 @resolves_userspec
@@ -298,7 +303,7 @@ def show_errors(how_many=10):
     outp = ''
     for i in stats.list_latest_errors(how_many):
         outp += url_for('error_view', uid=i, _external=True)+'\n'
-    return outp
+    return outp or 'No errors found. Great job!'
 
 @requires_manager
 def error_out():
@@ -334,13 +339,20 @@ def recv_message(data):
     reply_to = message['peer_id']
     
     def reply(t):
-        vkapi.messages.send(peer_id=reply_to, message=(f'@id{sender}: ' if sender!=reply_to else '')+t, random_id=0)
-    
+        vkapi.messages.send(peer_id=reply_to, message=(f'{utils.get_at_spec(sender)}: ' if sender!=reply_to else '')+t, random_id=0)
+
     if 'payload' in message:
         payload = json.loads( bytes(message['payload'], 'utf-8') )
-        if 'command' in payload and payload['command']=='start':
-            reply('Welcome to InLaTeX! To begin, type a LaTeX expression to render it, or type "/help" for a command list.')
-            return
+        if 'command' in payload:
+            if payload['command']=='start':
+                reply('Welcome to InLaTeX! To begin, type a LaTeX expression to render it, or type "/help" for a command list.')
+                return
+
+    if 'action' in message:
+        if 'type' in message['action']:
+            if message['action']['type']=='chat_invite_user':
+                reply('This is the InLaTeX bot. To use, please @-mention me and write an expression to render (like this: "@inlatexbot $E=mc^2$").\nFor more features, enter a private chat with me and type "/help".')
+                return
 
     try:
         text = message['text']
@@ -362,7 +374,7 @@ def recv_message(data):
                 if answer:
                     reply(answer)
             except TypeError:
-                reply('Wrong number of arguments for command, for command list type "/help".')
+                reply('Wrong number of arguments for command, for command list type "/help".'+traceback.format_exc())
             except:
                 reply('ERROR: see '+ERROR(traceback.format_exc(), reply_to, text))
         else:
@@ -384,7 +396,7 @@ This is a serious problem!
 
 The bot is currently unable to render images.
 A report has been sent to the bot's admin.''')
-        ERROR('Celery ping failed', sender_id, text)
+        ERROR('Celery ping failed', sender, text)
         return
 
     latex_celery_tasks.ERROR = ERROR
@@ -417,4 +429,6 @@ def api():
         else:
             return res
     except:
+        traceback.print_exc()
         ERROR(traceback.format_exc(), None, str(data))
+        return 'ok'

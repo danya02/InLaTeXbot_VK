@@ -7,11 +7,14 @@ import traceback
 import data_managers
 import time
 import stats
+import utils
 
 cel = Celery('latex_celery_tasks', broker='redis://localhost')
 vk_session = vk_api.VkApi(token=config.access_token)
 api = vk_session.get_api()
 conv = LatexConverter(api)
+utils = utils.VKUtilities(api)
+
 
 def ERROR(*args): # this is where main.py will put their error function.
     pass
@@ -69,21 +72,21 @@ def render_for_groupchat(sender, reply_to, text):
         cic = opt_man.get_code_in_caption(sender)
         tic = opt_man.get_time_in_caption(sender)
         if cic and tic:
-            photo_send_kwargs.update({'message': f'@id{sender}: {text} (rendered in {ttr} seconds)'})
+            photo_send_kwargs.update({'message': f'{utils.get_at_spec(sender)}: {text} (rendered in {ttr} seconds)'})
         elif tic:
-            photo_send_kwargs.update({'message': f'@id{sender}: rendered in {ttr} seconds'})
+            photo_send_kwargs.update({'message': f'{utils.get_at_spec(sender)}: rendered in {ttr} seconds'})
         elif cic:
-            photo_send_kwargs.update({'message': f'@id{sender}: {text}'})
+            photo_send_kwargs.update({'message': f'{utils.get_at_spec(sender)}: {text}'})
         else:
-            photo_send_kwargs.update({'message': f'@id{sender}'})
+            photo_send_kwargs.update({'message': f'{utils.get_at_spec(sender)}'})
 
         api.messages.send(**photo_send_kwargs)
         opt_man.set_last_render_time(sender, time.time())
     except ValueError as e:
-        api.messages.send(peer_id=reply_to, message=f'@id{sender}: LaTeX error:\n'+e.args[0], random_id=0)
+        api.messages.send(peer_id=reply_to, message=f'{utils.get_at_spec(sender): LaTeX error:\n'+e.args[0], random_id=0)
         error = True
     except:
-        api.messages.send(peer_id=reply_to, message='@id{sender}: ERROR, see '+ERROR(traceback.format_exc(), sender, text),  random_id=0)
+        api.messages.send(peer_id=reply_to, message='{utils.get_at_spec(sender)}: ERROR, see '+ERROR(traceback.format_exc(), sender, text),  random_id=0)
         error = True
     finally:
         stats.record_render(sender, ttr, error)
