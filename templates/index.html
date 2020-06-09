@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>InLaTeX VK</title>
+
+		<meta charset="UTF-8">
+		<!-- LaTeX logo typeset CSS from https://stackoverflow.com/a/8160532 -->
+<style>
+.tex sub, .latex sub, .latex sup {
+      text-transform: uppercase;
+}
+
+.tex sub, .latex sub {
+      vertical-align: -0.5ex;
+      margin-left: -0.1667em;
+      margin-right: -0.125em;
+}
+
+.tex, .latex, .tex sub, .latex sub {
+      font-size: 1em;
+      margin: 0px !important;
+}
+
+.latex sup {
+      font-size: 0.85em;
+      vertical-align: 0.15em;
+      margin-left: -0.36em;
+      margin-right: -0.15em;
+}
+</style>
+{% macro latex() %}<span class="latex">L<sup>a</sup>T<sub>e</sub>X</span>{% endmacro %}
+
+
+<!-- Computer Modern font from https://www.checkmyworking.com/cm-web-fonts/ -->
+
+
+<link rel="stylesheet" href="{{url_for('static', filename='cmun-serif.css')}}">
+<link rel="stylesheet" href="{{url_for('static', filename='cmun-typewriter.css')}}">
+
+
+{% set me_main = "6991d0" %}
+{% set me_sec = "9ac1d9" %}
+{% set bot_main = "a3dfc9" %}
+{% set bot_sec = "8fd9e6" %}
+{% set p1_main = "4b2724" %}
+{% set p1_sec = "842f2f" %}
+{% set p2_main = "3d3e3c" %}
+{% set p2_sec = "575959" %}
+<style>
+body {
+	font-family: 'Computer Modern Serif';
+	font-size: larger;
+	background: #888;
+	color: black;
+}
+
+pre {
+	font-family: 'Computer Modern Typewriter';
+	white-space: pre-wrap; 
+}
+code {
+	font-family: 'Computer Modern Typewriter';
+}
+
+h1 {
+	text-align: center;
+}
+
+body > p {
+	text-indent: 50px;
+}
+</style>
+
+<!-- speech bubble base from https://leaverou.github.io/bubbly/ -->
+
+<style>
+.speech-bubble {
+	position: relative;
+	border-radius: 20px;
+	display: block;
+	margin-right: 30px;
+	margin-left: 20px;
+	clear: both;
+	margin-top: 8px;
+	margin-bottom: 8px;
+}
+
+.speech-bubble * {
+	color: black;
+	margin: 10px;
+}
+
+.me {
+	background-image: linear-gradient(to right, #{{me_sec}}, #{{me_main}});
+	float: right;
+}
+
+.speech-bubble:after {
+	content: '';
+	position: absolute;
+	right: 20px;
+	top: 100%;
+	width: 0;
+	height: 0;
+	z-index: -10;
+	border: 30px solid transparent;
+	border-left-color: #{{me_main}};
+	border-bottom: 0;
+	margin-top: -30px;
+}
+
+.me:after {
+	right: 20px;
+	border-right-color: #6502f9;
+	margin-right: -35px;
+	border-right: 0;
+}
+
+.bot {
+	background-image: linear-gradient(to right, #{{bot_main}}, #{{bot_sec}});
+	float: left;
+}
+
+.bot:after {
+	left: 20px;
+	border-right-color: #{{bot_main}};
+	margin-left: -35px;
+	border-left: 0;
+}
+
+{% macro other(who, left_color, right_color) %}
+.{{who}} {
+	background-image: linear-gradient(to right, #{{left_color}}, #{{right_color}});
+	float: left;
+}
+
+.{{who}}:after {
+	left: 20px;
+	border-right-color: #{{left_color}};
+	margin-left: -35px;
+	border-left: 0;
+}
+
+{% endmacro %}
+
+
+{{other("person1", p1_main, p1_sec) }}
+{{other("person2", p2_main, p2_sec) }}
+
+.speech-bubble img {
+	margin: 10px;
+	border-radius: 16px;
+}
+
+@keyframes slidefade {
+	from {
+		opacity: 0%;
+		transform: translateY(100px);
+	}
+	to {
+		opacity: 100%;
+		transform: translateY(0px);
+	}
+}
+
+.anim {
+	animation-name: slidefade;
+	animation-duration: 1s;
+	animation-fill-mode: both;
+}
+
+{% macro delay(t) %}style="animation-delay: {{t}}s;"{% endmacro %}
+
+.chatbox {
+	background-color: #ccc;
+	border-color: white;
+	border-width: 4px;
+	border-style: solid;
+	border-radius: 16px;
+	width: 50%;
+	overflow: hidden;
+	clear:both;
+	margin: 0 auto;
+}
+
+/* for document message */
+.speech-bubble svg {
+	float: left;
+}
+
+{# icon taken from the material design icon set: https://material.io/resources/icons/ #}
+{% set document_icon %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="48px" height="48px"><path d="M0 0h24v24H0z" fill="none"/><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+{% endset %}
+
+
+header{
+	background-color: #{{bot_main}};
+}
+
+#header-caption {
+	font-size: 48pt;
+	text-align: center;
+}
+#header-subcaption {
+	font-size: 28pt;
+	text-align: center;
+}
+#header-subcaption a {
+	color: white;
+	font-family: 'Computer Modern Typewriter';
+}
+
+</style>
+
+	</head>
+	<body>
+		<header> 
+			<div id="header-caption">Render {{latex()}} expressions in VK</div>
+			<div id="header-subcaption"><a href="https://vk.com/inlatexbot">https://vk.com/in{{latex()}}bot</a></div>
+			<div id="header-subcaption"><a href="https://github.com/danya02/InLaTeXbot_VK">https://github.com/danya02/In{{latex()}}bot_VK</a></div>
+		</header>
+
+
+		<h2>Message me to render an image</h2>
+		<div class="chatbox">
+			<div class="me speech-bubble anim" {{delay(0.5)}}><pre>/add-preamble \usepackage[all]{xy}</pre></div>
+			<div class="bot speech-bubble anim" {{delay(1.5)}}><p>Added "<code style="margin:0;">\usepackage[all]{xy}</code>" to your preamble as line number 9.</p></div>
+			<div class="me speech-bubble anim" {{ delay(2.5) }}>
+<pre>\[
+\xymatrix@C+1em@R+1em{
+&amp; A \ar^f[r] \ar^a[d] &amp; B \ar^g[r] \ar^b[d] &amp; C \ar[r] \ar^c[d] &amp; 0 \\
+0 \ar[r] &amp; A' \ar^{f'}[r] &amp; B' \ar^{g'}[r] &amp; C' &amp;
+}
+\]
+</pre>
+			</div>
+			<div class="bot speech-bubble anim" {{ delay(3.5) }}>
+				<img src="{{url_for('static', filename='demo-expr-1.jpg')}}" />
+			</div>
+			<div class="bot speech-bubble anim" {{ delay(3.75) }}>
+				<a href="{{url_for('static', filename='demo-expr-1.pdf')}}" style="margin:0;">
+					{{ document_icon }} <p>{{latex()}} expression</p>
+				</a>
+			</div>
+		</div>
+
+		<h2>Or mention me in a group chat</h2>
+
+{# the "if-false"d out script tags are so Vim's syntax highlighting does not break on invalid HTML code #}
+
+{% if False %}<script>{% endif %}
+
+{% set demo_2_code %}
+\begin{equation}
+k_{rOG} (S_G) =
+\begin{cases}
+   k_{rORG} + (k_{rOLG} - k_{rORG}) \frac{S_{GCR} - S_{G}}{S_{GCR} - S_{GL}}, & S_{GL} \leq S_G < S_{GCR} \\[1ex]
+   k_{rORG}(1 - S_{Gn})^{n_{OG}}, & S_{GCR} \leq S_G \leq 1 - S_{OGCR}-S_{WL} \\[1ex]
+   0, & 1 - S_{OGCR}-S_{WL} < S_G \leq S_{GU}
+\end{cases}
+\end{equation}
+
+{% endset %}
+
+{% set demo_3_code %}
+$$ N_w=\xi_{W,SC} \frac{S_W}{B_W} $$
+{% endset %}
+
+{% if False %}</script>{% endif %}
+
+{% set inlatex_link %}<a href="https://vk.com/inlatexbot">@In{{latex()}}_VK</a>{% endset %}
+
+		<div class="chatbox">
+			<div class="person1 speech-bubble anim" {{delay(0.5)}}><p>Anything we need to change before the demo?</p></div>
+			<div class="me speech-bubble anim" {{delay(1.5)}}><p>Yes, the formula on page {{random.randint(100, 600)}} is wrong. It should be:</p></div> 
+			<div class="me speech-bubble anim" {{delay(2.5)}}>{{inlatex_link}} <pre>{{demo_2_code}}</pre></div> 
+			<div class="bot speech-bubble anim" {{ delay(3.5) }}>
+				<img src="{{url_for('static', filename='demo-expr-2.jpg')}}" />
+			</div>
+			<div class="person1 speech-bubble anim" {{delay(4.5)}}><p>Got it, anything else?</p></div>
+			<div class="person2 speech-bubble anim" {{delay(5.5)}}><p>Maybe the one on the left at {{random.randint(50, 200)}} should be like this?</p></div>
+			<div class="person2 speech-bubble anim" {{delay(6.5)}}><p>{{inlatex_link}} <code style="margin:0;">{{demo_3_code}}</code></p></div> 
+			<div class="bot speech-bubble anim" {{ delay(7.5) }}>
+				<img src="{{url_for('static', filename='demo-expr-3.jpg')}}" />
+			</div>
+
+		</div>
+
+		{% include "vk-widget.html" %}
+	</body>
+</html>

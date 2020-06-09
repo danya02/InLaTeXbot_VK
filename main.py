@@ -11,9 +11,10 @@ import json
 import stats
 import utils
 import time
+import random
 
 app = Flask(__name__)
-app.config['SERVER_NAME'] = 'https://inlatex.danya02.ru'
+#app.config['SERVER_NAME'] = 'https://inlatex.danya02.ru'
 vk_session = vk_api.VkApi(token=config.access_token)
 vkapi = vk_session.get_api()
 utils = utils.VKUtilities(vkapi)
@@ -415,7 +416,7 @@ type_map = {
 
 @app.route('/')
 def index():
-    return 'Hello LaTeX!'
+    return render_template('index.html', random=random)
 
 @app.route('/api', methods=['POST'])
 def api():
@@ -433,3 +434,6 @@ def api():
         traceback.print_exc()
         ERROR(traceback.format_exc(), None, str(data))
         return 'ok'
+
+if __name__ == '__main__':
+    app.run('0.0.0.0', 5000, True)
