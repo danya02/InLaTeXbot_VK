@@ -1,7 +1,33 @@
 <script type="text/javascript" src="https://vk.com/js/api/openapi.js?168"></script>
 
 <!-- VK Widget -->
-<div id="vk_community_messages">The VK community chat widget has not been initialized yet. This may be because your browser blocks VK as a potential tracker. You might want to disable your browser's ad blocker, or alternatively you can visit <a href="https://vk.com/inlatexbot">the community page on VK</a>.</div>
+<div id="vk_community_messages"></div>
+
+<style>
+#vk_error_text {
+	border-style: solid;
+	border-color: red;
+	border-radius: 16px;
+}
+
+#vk_error_text > * {
+	margin: 8px;
+}
+</style>
+
+<div id="vk_error_text"><p>The VK community chat widget has not started initialization. This may be because Javascript is disabled in your browser. Alternatively you can visit <a href="https://vk.com/inlatexbot">the community page on VK</a>.</p></div>
 <script type="text/javascript">
-VK.Widgets.CommunityMessages("vk_community_messages", 195258685, {expanded: "1",disableExpandChatSound: "1",tooltipButtonText: "Try it out now!"});
+	var because = 'This may be because your browser blocks VK as a potential tracker. You might want to disable your browser\'s ad blocker, or alternatively you can visit <a href="https://vk.com/inlatexbot">the community page on VK</a>.</p>'
+document.getElementById("vk_error_text").innerHTML = "The VK community chat widget has not been initialized yet. " + because;
+try {
+	VK.Widgets.CommunityMessages("vk_community_messages", 195258685, {expanded: "1",disableExpandChatSound: "1",tooltipButtonText: "Try it out now!"});
+	document.getElementById("vk_error_text").remove();
+}
+catch(e){
+	if (e instanceof ReferenceError){
+		document.getElementById("vk_error_text").innerHTML = "<p>There was an error loading the VK widget. " + because;
+	} else {
+		document.getElementById("vk_error_text").innerHTML = "<p>There was an unknown error while initializing the VK widget: <code>" + e + "</code>. " + because;
+	}
+}
 </script>

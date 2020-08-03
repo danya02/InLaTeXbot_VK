@@ -1,0 +1,176 @@
+{% set me_main = "hsl(180, 70%, 70%)" %}
+{% set me_sec = "hsl(200, 70%, 70%)" %}
+{% set bot_main = "hsl(225, 30%, 75%)" %}
+{% set bot_sec = "hsl(200, 40%, 75%)" %}
+{% set p1_main = "hsl(100, 50%, 60%)" %}
+{% set p1_sec = "hsl(120, 50%, 65%)" %}
+{% set p2_main = "hsl(300, 40%, 75%)" %}
+{% set p2_sec = "hsl(270, 540%, 70%)" %}
+{% set background = "#fff" %}
+{% set text_color = "black" %}
+{% set border_color = "white" %}
+body {
+	font-family: 'Computer Modern Serif';
+	font-size: larger;
+	background: {{background}};
+	color: {{text_color}};
+}
+
+pre {
+	font-family: 'Computer Modern Typewriter';
+	white-space: pre-wrap; 
+}
+code {
+	font-family: 'Computer Modern Typewriter';
+}
+
+h1 {
+	font-weight: normal;
+	text-align: center;
+}
+
+h2 {
+	font-weight: normal;
+}
+
+body > p {
+	text-indent: 50px;
+}
+
+
+header{
+	background-color: {{bot_main}};
+}
+
+header h1 {
+	font-size: 48pt;
+	text-align: center;
+	margin: 0;
+}
+header h2 {
+	font-size: 28pt;
+	text-align: center;
+	margin: 0;
+}
+header h2 a {
+	color: {{text_color}};
+	font-family: 'Computer Modern Typewriter';
+}
+
+/* ------------------ */
+
+
+.speech-bubble {
+	position: relative;
+	border-radius: 20px;
+	display: block;
+	margin-right: 30px;
+	margin-left: 20px;
+	clear: both;
+	margin-top: 8px;
+	margin-bottom: 8px;
+}
+
+.speech-bubble * {
+	color: black;
+	margin: 10px;
+}
+
+.me {
+	background-image: linear-gradient(to right, {{me_sec}}, {{me_main}});
+	float: right;
+}
+
+.speech-bubble:after {
+	content: '';
+	position: absolute;
+	right: 20px;
+	top: 100%;
+	width: 0;
+	height: 0;
+	z-index: -10;
+	border: 30px solid transparent;
+	border-bottom: 0;
+	margin-top: -30px;
+}
+
+.me:after {
+	right: 20px;
+	border-right-color: #6502f9;
+	margin-right: -35px;
+	border-right: 0;
+	border-left-color: {{me_main}};
+}
+
+.bot {
+	background-image: linear-gradient(to right, {{bot_main}}, {{bot_sec}});
+	float: left;
+}
+
+.bot:after {
+	left: 20px;
+	border-right-color: {{bot_main}};
+	margin-left: -35px;
+	border-left: 0;
+}
+
+{% macro other(who, left_color, right_color) %}
+.{{who}} {
+	background-image: linear-gradient(to right, {{left_color}}, {{right_color}});
+	float: left;
+}
+
+.{{who}}:after {
+	left: 20px;
+	border-right-color: {{left_color}};
+	margin-left: -35px;
+	border-left: 0;
+}
+
+{% endmacro %}
+
+
+{{other("person1", p1_main, p1_sec) }}
+{{other("person2", p2_main, p2_sec) }}
+
+.speech-bubble img {
+	margin: 10px;
+	border-radius: 16px;
+}
+
+@keyframes slidefade {
+	from {
+		opacity: 0%;
+		transform: translateY(100px);
+	}
+	to {
+		opacity: 100%;
+		transform: translateY(0px);
+	}
+}
+
+.anim {
+	animation-name: slidefade;
+	animation-duration: 1s;
+	animation-fill-mode: both;
+}
+
+
+.chatbox {
+	background-color: #eee;
+	border-color: {{border_color}};
+	border-width: 4px;
+	border-style: solid;
+	border-radius: 16px;
+	width: 75%;
+	overflow: hidden;
+	clear:both;
+	margin: 0 auto;
+}
+
+.speech-bubble svg {
+	float: left;
+	color: {{text_color}};
+}
+
+
