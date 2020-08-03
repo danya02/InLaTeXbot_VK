@@ -12,7 +12,7 @@ import stats
 import utils
 import time
 import random
-from idempotency import ensure_unique_event
+from idempotency import is_unique_event
 
 app = Flask(__name__)
 #app.config['SERVER_NAME'] = 'https://inlatex.danya02.ru'

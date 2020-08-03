@@ -10,7 +10,7 @@ class MyModel(Model):
         database = dbase
 
 class VKEvent(MyModel):
-    date = DatetimeField(default=datetime.datetime.now)
+    date = DateTimeField(default=datetime.datetime.now)
     event_id = CharField(unique=True)
     content = TextField()
 
