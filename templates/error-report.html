@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+	<head>
+		<title> Error report from {{err.when.isoformat(' ')}} </title>
+		<style>
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+		</style>
+	</head>
+	<body>
+		<table border=1>
+			<tr>
+				<td>Date and time of incident</td>
+				<td>{{err.when.isoformat(' ')}}</td>
+			</tr>
+			<tr>
+				<td>Caused by user with ID </td>
+				<td>{{err.associated_user_id}}</td>
+			</tr>
+			<tr>
+				<td>Caused by text</td>
+				<td><pre>{{err.text}}</pre></td>
+			</tr>
+			<tr>
+				<td>Traceback</td>
+				<td><pre>{{err.trace}}</pre></td>
+			</tr>
+		</table>
+	</body>
+</html>
