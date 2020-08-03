@@ -12,6 +12,7 @@ import stats
 import utils
 import time
 import random
+from idempotency import ensure_unique_event
 
 app = Flask(__name__)
 #app.config['SERVER_NAME'] = 'https://inlatex.danya02.ru'
@@ -416,7 +417,8 @@ type_map = {
 
 @app.route('/')
 def index():
-    return render_template('index.html', random=random)
+    return render_template('index.html', random=random, allow_tracker='allow_tracker' in request.args)
+
 
 @app.route('/api', methods=['POST'])
 def api():
@@ -424,6 +426,14 @@ def api():
     try:
         data = request.get_json(force=True)
         type = data['type']
+        event_id = data['event_id']
+        peer_id = config.owner_id
+        try:
+            peer_id = data['object']['message']['peer_id']
+        except:
+            pass
+        if not is_unique_event(event_id, data, peer_id, vkapi):
+            return 'ok'
         fun = type_map.get(type, default_data_handler)
         res = fun(data)
         if res is None:
