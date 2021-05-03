@@ -130,7 +130,7 @@ class SecretProtectedPropertyStore:
             to_hash = str(user_id)+self.PROPERTY
         else:
             to_hash = self.PROPERTY+str(user_id)
-        digest = hmac.HMAC(HMAC_SECRET, bytes( to_hash, 'utf-8' )).hexdigest()
+        digest = hmac.digest(HMAC_SECRET, bytes( to_hash, 'utf-8' ), 'sha1').hexdigest()
         return self.PROPERTY+'-'+digest
 
     def __getitem__(self, user_id):
@@ -142,7 +142,7 @@ class SecretProtectedPropertyStore:
     def __setitem__(self, user_id, value):
         if self.BOOLEAN:
             if value:
-                value = hmac.HMAC(HMAC_SECRET, bytes( str(uuid.uuid4()), 'utf-8' )).hexdigest() # again, no reason, just make it look mysterious
+                value = hmac.new(HMAC_SECRET, bytes( str(uuid.uuid4()), 'utf-8' ), 'sha1').hexdigest() # again, no reason, just make it look mysterious
             else:
                 value = ''
         self.api.storage.set(user_id=user_id, key=self.get_storage_key(user_id), value=value)
@@ -183,7 +183,7 @@ class SignedValuePropertyStore:
 
         data, stored_hmac = res.split(self.SEPARATOR)
         data = bytes(data, 'utf-8')
-        my_hmac = hmac.HMAC(HMAC_SECRET+bytes(str(user_id), 'utf-8'), data).hexdigest()
+        my_hmac = hmac.new(HMAC_SECRET+bytes(str(user_id), 'utf-8'), data, 'sha1').hexdigest()
         if hmac.compare_digest(stored_hmac, my_hmac):
             data = json.loads(data) # do not check for errors here, if it passed HMAC check then we know it came from us
         else:
@@ -192,7 +192,7 @@ class SignedValuePropertyStore:
 
     def __setitem__(self, user_id, value):
         data = json.dumps(value)
-        signature = hmac.HMAC(HMAC_SECRET+bytes(str(user_id), 'utf-8'), data).hexdigest()
+        signature = hmac.new(HMAC_SECRET+bytes(str(user_id), 'utf-8'), data, 'sha1').hexdigest()
         data = str(data, 'utf-8')
         res = self.api.storage.set(key=self.PROPERTY, user_id=user_id, value=data + self.SEPARATOR + signature)
 
