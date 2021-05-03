@@ -22,6 +22,7 @@ services:
     depends_on:
      - broker
      - database
+    tmpfs: /build
     env_file:
       - CONFIG.env
 

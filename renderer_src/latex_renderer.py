@@ -50,14 +50,14 @@ class LatexConverter():
     def pdflatex(self, fileName):
         try:
             check_output(['pdflatex', "-interaction=nonstopmode", "-output-directory", 
-                    "build", fileName], stderr=STDOUT, timeout=5)
+                    "/build", fileName], stderr=STDOUT, timeout=120)
         except CalledProcessError as inst:
             with open(fileName[:-3]+"log", "r") as f:
                 msg = self.getError(f.readlines())
-                self.logger.debug(msg)
+                self.logger.warn(msg)
                 raise ValueError(msg)
         except TimeoutExpired:
-                msg = "Pdflatex has likely hung up and had to be killed. Congratulations!"
+                msg = "Your render job took too long and had to be killed. Please try again or try simplifying your job."
                 raise ValueError(msg)
     
     def cropPdf(self, sessionId):

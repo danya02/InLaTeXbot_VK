@@ -130,7 +130,7 @@ class SecretProtectedPropertyStore:
             to_hash = str(user_id)+self.PROPERTY
         else:
             to_hash = self.PROPERTY+str(user_id)
-        digest = hmac.digest(HMAC_SECRET, bytes( to_hash, 'utf-8' ), 'sha1').hexdigest()
+        digest = hmac.new(HMAC_SECRET, bytes( to_hash, 'utf-8' ), 'sha1').hexdigest()
         return self.PROPERTY+'-'+digest
 
     def __getitem__(self, user_id):

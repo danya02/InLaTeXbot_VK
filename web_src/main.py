@@ -12,7 +12,7 @@ import utils
 import time
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='/templates')
 SERVER_NAME = os.getenv('SERVER_NAME')
 app.config['SERVER_NAME'] = os.getenv('SERVER_NAME').strip('/').split('/')[-1]  # ignore "http://" and trailing slash, take part between them
 vk_session = vk_api.VkApi(token=os.getenv('VK_ACCESS_TOKEN'))
@@ -21,7 +21,7 @@ VK_SECRET = os.getenv('VK_SECRET')
 CONFIRMATION_STRING = os.getenv('CONFIRMATION_STRING')
 vkapi = vk_session.get_api()
 utils = utils.VKUtilities(vkapi)
-cel = latex_celery_tasks.Celery('latex', broker='rabbitmq://broker')
+cel = latex_celery_tasks.Celery('latex_celery_tasks', broker='amqp://guest:guest@broker')
 
 def ERROR(trace, user_id=None, text=None):
     uid = stats.record_error(trace, user_id, text)
@@ -429,6 +429,7 @@ def api():
     data = 'failed on get_json'
     try:
         data = request.get_json(force=True)
+        print('Received data', data)
         type = data['type']
         fun = type_map.get(type, default_data_handler)
         res = fun(data)

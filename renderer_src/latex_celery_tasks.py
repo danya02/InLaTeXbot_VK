@@ -27,7 +27,7 @@ utils = utils.VKUtilities(api)
 def ERROR(trace, user_id=None, text=None):
     uid = stats.record_error(trace, user_id, text)
     url = os.getenv('SERVER_NAME') + '/view-error/' + uid  # Change this line if you change the line in the web app.
-    vkapi.messages.send(peer_id=OWNER_ID, message='Unknown error encountered! Details at '+url, random_id=0)
+    api.messages.send(peer_id=OWNER_ID, message='Unknown error encountered! Details at '+url, random_id=0)
     return url
 
 def upload_doc(doc, peer_id, upload): # because vk_api is broken

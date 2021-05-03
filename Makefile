@@ -1,7 +1,13 @@
 all: build run
 
-build:
-	docker-compose build
+build: web renderer
+
+web:
+	docker-compose build web
+renderer:
+	docker-compose build renderer
+
+
 run:
 	docker-compose up
 install: build
