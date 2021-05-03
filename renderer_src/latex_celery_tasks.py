@@ -1,28 +1,34 @@
 from celery import Celery
 import vk_api
-import config
-from latex_renderer import LatexConverter
+try:
+    from latex_renderer import LatexConverter
+except ModuleNotFoundError:  # imported from web code, so renderer module not used
+    pass
 import uuid
 import traceback
 import data_managers
 import time
 import stats
 import utils
+import os
 
-cel = Celery('latex_celery_tasks', broker='redis://localhost')
-vk_session = vk_api.VkApi(token=config.access_token)
+
+cel = Celery('latex_celery_tasks', broker=f'amqp://guest:guest@broker')
+vk_session = vk_api.VkApi(token=os.getenv('VK_ACCESS_TOKEN'))
+OWNER_ID = int(os.getenv('OWNER_ID'))
 api = vk_session.get_api()
-conv = LatexConverter(api)
+try:
+    conv = LatexConverter(api)
+except NameError:  # import from above failed, so this is imported from web code and serves as a procedure reference for celery rather than being executed
+    pass
 utils = utils.VKUtilities(api)
 
 
-def ERROR(*args): # this is where main.py will put their error function.
-    import sys
-    sys.path.append('/data/InLaTeXbot_VK')
-    from main import ERROR as mainERROR
-    from main import app
-    with app.app_context():
-        return mainERROR(*args)
+def ERROR(trace, user_id=None, text=None):
+    uid = stats.record_error(trace, user_id, text)
+    url = os.getenv('SERVER_NAME') + '/view-error/' + uid  # Change this line if you change the line in the web app.
+    vkapi.messages.send(peer_id=OWNER_ID, message='Unknown error encountered! Details at '+url, random_id=0)
+    return url
 
 def upload_doc(doc, peer_id, upload): # because vk_api is broken
     # step 1: get server

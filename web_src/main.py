@@ -1,4 +1,3 @@
-import config
 import flask
 from flask import Flask, request, url_for, render_template
 from werkzeug.exceptions import HTTPException
@@ -11,19 +10,24 @@ import json
 import stats
 import utils
 import time
+import os
 
 app = Flask(__name__)
-app.config['SERVER_NAME'] = 'https://inlatex.danya02.ru'
-vk_session = vk_api.VkApi(token=config.access_token)
+SERVER_NAME = os.getenv('SERVER_NAME')
+app.config['SERVER_NAME'] = os.getenv('SERVER_NAME').strip('/').split('/')[-1]  # ignore "http://" and trailing slash, take part between them
+vk_session = vk_api.VkApi(token=os.getenv('VK_ACCESS_TOKEN'))
+OWNER_ID = int(os.getenv('OWNER_ID'))
+VK_SECRET = os.getenv('VK_SECRET')
+CONFIRMATION_STRING = os.getenv('CONFIRMATION_STRING')
 vkapi = vk_session.get_api()
 utils = utils.VKUtilities(vkapi)
-cel = latex_celery_tasks.Celery('latex', broker='redis://localhost')
+cel = latex_celery_tasks.Celery('latex', broker='rabbitmq://broker')
 
 def ERROR(trace, user_id=None, text=None):
     uid = stats.record_error(trace, user_id, text)
-    url = url_for('error_view', uid=uid, _external=True)
-    vkapi.messages.send(peer_id=config.owner_id, message='Unknown error encountered! Details at '+url, random_id=0)
-    return url 
+    url = SERVER_NAME + url_for('error_view', uid=uid)
+    vkapi.messages.send(peer_id=OWNER_ID, message='Unknown error encountered! Details at '+url, random_id=0)
+    return url
 
 @app.errorhandler(Exception)
 def error(error):
@@ -35,7 +39,7 @@ def error(error):
     return 'ok'
 
 
-@app.route('/view-error/<uid>')
+@app.route('/view-error/<uid>')  # Do not change this without also changing the corresponding line in the renderer script.
 def error_view(uid):
     try:
         err = stats.get_error(uid)
@@ -46,7 +50,7 @@ def error_view(uid):
         return traceback.format_exc()
 
 def confirmation(data):
-    return config.confirmation_string
+    return CONFIRMATION_STRING
 
 def default_data_handler(data):
     app.logger.warn('Unknown type received: '+repr(data))
@@ -85,7 +89,7 @@ As a manager, you also have these commands:
 /top-by-errors [how-many] -- get top users by errors during rendering
 /error-out -- intentionally cause an exception to test the error reporting feature
 '''
-    if user_id==config.owner_id:
+    if user_id==OWNER_ID:
         output += f'''
 
 As the bot owner, you also have these commands:
@@ -167,7 +171,7 @@ def set_caption_time(val, user_id=None):
 
 def requires_owner(func):
     def wrapper(*args, user_id=None):
-        if user_id != config.owner_id:
+        if user_id != OWNER_ID:
             return 'This command is only available to the bot admin'
         return func(*args)
     return wrapper
@@ -335,10 +339,13 @@ slash_commands = {
     }
 
 def recv_message(data):
+    if data.get('secret') != VK_SECRET:
+        ERROR('Request with improper secret field received!!\n\nData:\n'+str(data)+'\n\nRequest parameters:\n'+str(request))
+        return 'plz no hack me :(', 403
     message = data['object']['message']
     sender = message['from_id']
     reply_to = message['peer_id']
-    
+
     def reply(t):
         vkapi.messages.send(peer_id=reply_to, message=(f'{utils.get_at_spec(sender)}: ' if sender!=reply_to else '')+t, random_id=0)
 
@@ -433,3 +440,4 @@ def api():
         traceback.print_exc()
         ERROR(traceback.format_exc(), None, str(data))
         return 'ok'
+

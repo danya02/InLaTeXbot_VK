@@ -1,9 +1,9 @@
 from peewee import *
 import datetime
 import uuid
+import os
 
-dbase = MySQLDatabase('inlatex', user='inlatex', password='inlatex')
-#dbase = SqliteDatabase('/tmp/inlatex.db')
+dbase = MySQLDatabase(os.getenv('MYSQL_DATABASE'), user='root', password=os.getenv('MYSQL_ROOT_PASSWORD'), host='database')
 
 class MyModel(Model):
     class Meta:
@@ -11,7 +11,7 @@ class MyModel(Model):
 
 
 class User(MyModel):
-    user_id = IntegerField(primary_key=True, unique=True)
+    user_id = IntegerField(primary_key=True)
 
 class Render(MyModel):
     user = ForeignKeyField(User)
@@ -40,7 +40,8 @@ def uses_dbase(fn):
     return wrapper
 
 dbase.connect()
-dbase.create_tables([User, Render, Error])
+with dbase.atomic():
+    dbase.create_tables([User, Render, Error])
 dbase.close()
 
 @uses_dbase
